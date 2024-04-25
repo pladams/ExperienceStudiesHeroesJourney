@@ -1,0 +1,526 @@
+---
+title: "Expanding Exposures"
+author: "Philip Adams"
+date: "April 24, 2024"
+format: pdf
+editor: visual
+---
+
+This document will show how to expand a list of policies that includes a termination date into a listing of associated exposures, broken by calendar period and policy period. For our purposes, we set both calendar and policy periods to be 12 months.
+
+I only build an exposure basis for mortality. The "option" to exercise a claim can occur at any time, so exposure is uniformly spread out. 
+
+For persistency for premiums payable on a due date, the option to stop payment is usually only on a premium due date. Thus, the exposure is technically concentrated on that day. This is handled separately from surrenders, which can occur at any time.
+
+# Setup
+
+::: {.panel-tabset}
+
+## R
+```{r message=FALSE, warning=FALSE}
+library(data.table)
+library(arrow)
+library(tidyverse)
+library(parallel)
+library(doParallel)
+library(reticulate)
+
+nPolicyCensusSize <- 2000000
+arrIssueYearRange <- 2041:2054
+
+study_start <- as.Date("2041-01-01")
+study_end <- as.Date("2053-12-31")
+
+pol_period_granularity <- 12 # months per policy period
+cal_period_granularity <- 12 # months per calendar period
+
+cal_yr_breaks <- (study_start %m+% days(-1)) %m+% 
+  months( 
+    cal_period_granularity*(1:(interval(study_start %m+% days(-1),study_end) %/% 
+                                 months(cal_period_granularity)))
+  )
+
+arrow::read_parquet(file="policy_pop.parquet") %>%
+  data.table() ->
+  policy_pop
+
+policy_pop[,Prem_Mode_Months:=sapply(prem_mode,
+                                     FUN=\(x) switch(x,A=12,Q=3,M=1),
+                                     USE.NAMES=F)]
+
+source('LoadAssumptions.R')
+
+```
+
+## Python
+
+```{python}
+nPolicyCensusSize = 2000000
+arrIssueYearRange = range(2041,2055)
+
+import pandas as pd
+import pyarrow as pa
+import pyarrow.dataset as ds
+import pyarrow.parquet as pq
+import numpy as np
+
+from dateutil.relativedelta import *
+from dateutil.rrule import *
+from dateutil.parser import *
+from datetime import *
+
+import session_info
+
+rng_seed = 0xBEEF
+rng = np.random.default_rng(rng_seed)
+
+studyStartDate = datetime(2041,1,1)
+studyEndDate = datetime(2053,12,31)
+
+pol_period_granularity = 12 # months per policy period
+cal_period_granularity = 12 # months per calendar period
+
+def months_between(date1, date2, exact=False):
+  months_bn = (date2.year - date1.year)*12 + date2.month - date1.month
+  
+  if exact:
+    months_bn += date2.day/((date2 + relativedelta(day=31)).day) - \
+      date1.day/((date1 + relativedelta(day=31)).day)
+      
+  return months_bn
+
+studyStartDateMinus1 = studyStartDate + relativedelta(days=-1)
+studyMonths = np.floor(months_between(studyStartDate, studyEndDate) / 12)
+
+cal_yr_breaks = ([studyStartDate + relativedelta(days=-1,months=i) 
+      for i in np.arange(start=1,stop=studyMonths + 1,step=1)*cal_period_granularity])
+
+policy_pop = pq.read_table('policy_pop.parquet').to_pandas()
+
+policy_pop['Prem_Mode_Months'] = policy_pop['prem_mode'].map({
+  'M' : 1,
+  'Q' : 3,
+  'A' : 12
+})
+
+policy_pop['Issue_Date'] = pd.to_datetime(policy_pop['Issue_Date'])
+policy_pop['Term_Date'] = pd.to_datetime(policy_pop['Term_Date'])
+
+policy_pop_sample = policy_pop.head(1000).copy()
+```
+
+:::
+
+# The Exposure Building Function
+
+First, we need to determine the upper and lower bounds of the study periods.
+
+- Set the *first date* to be the later of the issue date and study start date.
+- Set the *last date* to be the earlier of the termination date, if valid, and study end date.
+- Calculate the *full policy periods* as the exact months between the issue date and last date.
+- Calculate the *pre-study periods* as the exact months between the issue date and the *first date*.
+
+::: {.panel-tabset}
+
+## R
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+.data %>%
+  mutate(
+    first_date=as.Date(
+      pmax({{.issue_date}},.exp_period_start)
+    ),
+    last_date=as.Date(
+      pmin(replace_na({{.term_date}},.exp_period_end),.exp_period_end)
+    ),
+    full_pol_periods = interval({{.issue_date}},last_date) / 
+      months(.pol_period_granularity),
+    prestudy_pol_periods = interval({{.issue_date}},first_date) / 
+      months(.pol_period_granularity)
+  ) ->
+  .data
+
+```
+
+## Python
+
+```{python}
+policy_pop_sample['first_date'] = ([max([d,studyStartDate]) for d 
+  in policy_pop_sample['Issue_Date']])
+policy_pop_sample['last_date'] = ([min([d,studyEndDate]) for d in 
+  policy_pop_sample['Term_Date'].fillna(studyEndDate)])
+
+policy_pop_sample['full_pol_periods'] = policy_pop_sample.apply(lambda x: \
+  months_between(x['Issue_Date'],x['last_date'],True) / \
+  pol_period_granularity,axis=1)
+policy_pop_sample['prestudy_pol_periods'] = policy_pop_sample.apply(lambda x: \
+  months_between(x['Issue_Date'],x['first_date'],True) / \
+  pol_period_granularity,axis=1)
+
+policy_pop_sample
+
+```
+
+:::
+
+Next, create the modal sequence for a policy. This is just a sequence of numbers which will be cross-joined into the policy census to build out the mode-aversaries.
+
+::: {.panel-tabset}
+
+## R
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+modal_sequence <- pol_period_granularity*as.numeric(
+  seq(to=.data[,ceiling(max(full_pol_periods))])
+)
+modal_sequence
+
+```
+
+## Python
+
+```{python}
+
+modal_sequence = pol_period_granularity*np.arange(1, \
+  np.ceil(policy_pop_sample['full_pol_periods'].max())+1, \
+    dtype=np.int32)
+modal_sequence
+
+```
+
+:::
+
+We have reached the part where we develop the frame of exposures. The expansion is carried out in three parts:
+
+1. Create the sequence of policy mode-aversaries and save the day before.
+2. Add the termination dates.
+3. Create the sequence of calendar period "anniversaries".
+4. Bind them all together. The foregoing dates become the exposure ending period (*exp_period_end*).
+5. Sort by policy ID and exposure ending period.
+6. Set the field for exposure period start, *exp_period_start*, to the day after the exposure period end of the prior record. If there is no prior record, set it to the *first date*.
+7. Filter as needed at any appropriate point to ensure that the exposure periods are within the pre-defined study start and end dates.
+
+
+## Policy Mode-aversaries
+
+Steps for this stage:
+
+1. Select only the needed columns.
+2. Cross-join the modal sequence.
+3. Filter out modes which aren't in the study.
+4. Align only to premium due date modes.
+5. Set the ending experience period to be the day before the mode-aversary.
+6. Select the needed columns, and store.
+
+::: {.panel-tabset}
+
+### R
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+.data %>%
+  select({{.ID}},
+         prestudy_pol_periods,
+         full_pol_periods,
+         {{.prem_mode_months}},
+         {{.issue_date}},
+         first_date) %>%
+  cross_join(y=data.table(monthaversary=modal_sequence)) %>% # Modal cross-join
+  filter(monthaversary >= ceiling(prestudy_pol_periods*.pol_period_granularity) & 
+           monthaversary <= floor(full_pol_periods*.pol_period_granularity)) %>%
+  filter(monthaversary %% {{.prem_mode_months}} == 0) %>%
+  mutate(exp_period_end = {{.issue_date}} %m+% months(monthaversary) %m+%
+           days(-1)) %>%
+  select({{.ID}},first_date,monthaversary,exp_period_end,{{.issue_date}}) ->
+  stage1a
+
+```
+
+### Python
+
+```{python}
+
+stage1a = (
+  policy_pop_sample[
+    ['PolID','prestudy_pol_periods','full_pol_periods','Prem_Mode_Months', \
+      'Issue_Date','first_date']
+    ].merge(
+      pd.DataFrame(data={'monthaversary' : modal_sequence}),
+      how='cross'
+      ).query(
+        'monthaversary >= ceil(prestudy_pol_periods*@pol_period_granularity)'
+        ).query('monthaversary <= floor(full_pol_periods*@pol_period_granularity)')
+          .query('monthaversary % Prem_Mode_Months == 0')
+)
+
+stage1a['exp_period_end'] = stage1a.apply(lambda x: x['Issue_Date'] + \
+  relativedelta(days=-1, months=x['monthaversary']),axis=1)
+
+stage1a = stage1a[['PolID','first_date','monthaversary','exp_period_end','Issue_Date']]
+
+stage1a
+
+```
+
+:::
+
+## Terminating Records
+
+Steps for this stage:
+
+1. Filter only for actual terminations.
+2. Restrict terminations only to those occurring in the study period.
+3. Set the experience period end date to be the termination date.
+4. Set the mode-aversary corresponding to this date.
+5. Select only the needed columns, and store.
+
+::: {.panel-tabset}
+
+### R
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+.data %>%
+  filter(!is.na({{.term_date}})) %>%
+  filter({{.term_date}} >= study_start & {{.term_date}} <= study_end) %>%
+  select({{.ID}},{{.issue_date}},first_date,{{.term_date}}) %>%
+  rename(exp_period_end={{.term_date}} ) %>%
+  mutate(monthaversary=interval({{.issue_date}},exp_period_end) / months(1)) %>%
+  select({{.ID}},first_date,monthaversary,exp_period_end,{{.issue_date}}) ->
+  stage1b
+
+```
+
+### Python
+
+```{python}
+
+stage1b = (
+  policy_pop_sample.query('Term_Date == Term_Date')
+    .query('Term_Date >= @studyStartDate and Term_Date <= @studyEndDate')
+)
+
+stage1b = stage1b[['PolID','Issue_Date','first_date','Term_Date']]
+stage1b = stage1b.rename(columns={'Term_Date':'exp_period_end'})
+stage1b['monthaversary'] = [months_between(x,y,exact=True) for x,y in \
+  zip(stage1b['Issue_Date'],stage1b['exp_period_end'])]
+
+stage1b
+
+```
+
+:::
+
+
+## Calendar-Year Breaks
+
+Steps for this stage:
+
+1. Cross-join the calendar year breaks.
+2. Filter only those occurring in the policy's exposure window.
+3. Set the corresponding *modeaversary*.
+4. Select only the needed columns, and store.
+
+::: {.panel-tabset}
+
+### R
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+.data %>%
+  cross_join(data.table(exp_period_end=.cal_yr_breaks)) %>%
+  filter(exp_period_end >= first_date &
+           exp_period_end <= last_date) %>%
+  mutate(monthaversary=interval({{.issue_date}},exp_period_end) / months(1)) %>%
+  select({{.ID}},first_date,monthaversary,exp_period_end,{{.issue_date}}) ->
+  stage1c
+
+```
+
+### Python
+
+```{python}
+
+stage1c = (
+  policy_pop_sample.merge(
+      pd.DataFrame(data={'exp_period_end' : cal_yr_breaks}),
+      how='cross'
+      ).query(
+        'exp_period_end >= first_date and exp_period_end <= last_date'
+        )
+)
+
+stage1c['monthaversary'] = [months_between(x,y,exact=True) for x,y in \
+  zip(stage1c['Issue_Date'],stage1c['exp_period_end'])]
+stage1c = stage1c[['PolID','first_date','monthaversary','exp_period_end', \
+  'Issue_Date']]
+
+stage1c
+
+```
+
+:::
+
+## Putting It All Together and Final Touches
+
+Steps for this stage:
+
+1. Concatenate the three pieces.
+2. Ensure we have distinct records.
+3. Order by policy ID and exposure period end.
+4. Group by Policy ID.
+5. Within policy ID, compute the exposure period start as the day after the prior record.
+6. Within Policy ID, set null exposure starts to be the first date.
+7. Compute policy duration and exact exposure.
+8. Select the needed columns, and store.
+
+::: {.panel-tabset}
+
+### R
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+rbind(
+  stage1a,
+  stage1b,
+  stage1c
+) %>%
+  distinct() %>%
+  arrange({{.ID}}, exp_period_end) %>%
+  group_by({{.ID}}) %>%
+  mutate(exp_period_start=lag(exp_period_end) %m+% days(1),
+         .before=exp_period_end) %>%
+  mutate(exp_period_start=as.Date(ifelse(is.na(exp_period_start),
+                                         first_date,
+                                         exp_period_start))) %>%
+  mutate(pol_duration = pmax(1,ceiling(interval({{.issue_date}},exp_period_end) / 
+                                         years(1))),
+         exposure = (interval(exp_period_start,exp_period_end) / days(1) + 1) / 
+           ifelse(year(exp_period_end) %% 4 == 0, 366, 365)
+  ) %>%
+  select({{.ID}},monthaversary,exp_period_start,exp_period_end,pol_duration,exposure) %>%
+  data.table() ->
+  .data
+
+```
+
+### Python
+
+```{python}
+
+exposures = (
+  pd.concat(
+  [stage1a,stage1b,stage1c]
+).drop_duplicates()
+ .sort_values(['PolID','exp_period_end'])
+ ).reset_index(drop=True)
+ 
+ 
+
+exposures['exp_period_start'] = [d + relativedelta(days=1) \
+  for d in exposures['exp_period_end']]
+exposures['exp_period_start'] = exposures.groupby('PolID')['exp_period_start'].shift(1)
+exposures['exp_period_start'] = exposures['exp_period_start'].fillna(exposures['first_date'])
+
+exposures['pol_duration'] = [np.ceil(months_between(x,y,exact=True)/12) for x,y in \
+  zip(exposures['Issue_Date'],exposures['exp_period_end'])]
+exposures['pol_duration'] = exposures['pol_duration'].astype('int32')
+
+exposures['exposure'] = \
+  exposures.apply(
+    lambda x: ((x['exp_period_end'] - x['exp_period_start']).days + 1)/ \
+      (366 if (x['exp_period_end'].year % 4 == 0) else 365),
+    axis=1)
+
+exposures = exposures[['PolID','monthaversary','exp_period_start', \
+  'exp_period_end','pol_duration','exposure']]
+
+exposures
+
+```
+
+:::
+
+# Final Build With R Function
+
+The R function that I built can be run in parallel, and I have opted to run by issue year for this example. In production, it might be better to run it by experience year.
+
+Without parallelism, it will take several hours to develop the entire exposure set. Using 13 cores as I do here for each issue year, it takes about 12 minutes. This is why I opted not to demonstrate this in Python in this document. Doing this in Python's parallelism will work as well (i.e., create a function and manually spawn processes, and so on).
+
+```{r}
+source('expand.exposures.R')
+
+cl <- makeCluster(13)
+registerDoParallel(cl=cl)
+
+policy_exposures <- foreach(i=2041:2053,.packages=c("data.table","tidyverse")) %dopar% {
+          policy_pop[Issue_Year==i] %>%
+            filter(Issue_Date <= study_end) %>%
+            select(PolID,Issue_Date,Term_Date,Prem_Mode_Months) %>%
+            expand_exposures(
+              .exp_period_start = study_start,
+              .exp_period_end = study_end,
+              .cal_yr_breaks = cal_yr_breaks,
+              .pol_period_granularity = pol_period_granularity,
+              .cal_period_granularity = cal_period_granularity,
+              .issue_date = Issue_Date,
+              .term_date = Term_Date,
+              .ID=PolID,
+              .prem_mode_months = Prem_Mode_Months
+            )
+        }
+
+stopCluster(cl)
+
+policy_exposures <- rbindlist(policy_exposures)
+
+policy_exposures[,ID:=1:nrow(.SD)]
+
+arrow::write_parquet(x=policy_exposures,
+                     sink="policy_exposures.parquet")
+
+policy_exposures
+```
+
+# Attaching Expected Claims
+
+Attaching the expecting claims is once again a basic database operation.
+
+1. Join the policy census with the exposures.
+2. Join the expected basis for the event of interest, if the basis is in table form.
+3. Compute derived quantities, and store.
+
+After that, the information can be fed into reporting and analytics pipelines as needed.
+
+```{r}
+policy_pop %>%
+  filter(UW_Decision != "DEC") %>%
+  inner_join(y=policy_exposures,
+             by="PolID") %>%
+  inner_join(
+    y=vbt2015,
+    by=join_by(
+      Sex==Sex,
+      Issue_Age==Issue_Age,
+      pol_duration==Duration
+    )
+  ) %>%
+  mutate(ExpectedClaims_2015VBT_Count=exposure*-log(1-qx_su),
+         ExpectedClaims_2015VBT_Amount=ExpectedClaims_2015VBT_Count*Face_Amount) %>%
+  select(ID,ExpectedClaims_2015VBT_Count,ExpectedClaims_2015VBT_Amount)->
+  expected_claims
+
+expected_claims
+```
+
+# Session Information
+
+::: {.panel-tabset}
+
+## R
+
+```{r}
+sessionInfo()
+```
+
+## Python
+
+```{python}
+session_info.show()
+```
+:::

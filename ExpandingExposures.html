@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Philip Adams">
+<meta name="dcterms.date" content="2024-04-24">
+
+<title>Expanding Exposures</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="ExpandingExposures_files/libs/clipboard/clipboard.min.js"></script>
+<script src="ExpandingExposures_files/libs/quarto-html/quarto.js"></script>
+<script src="ExpandingExposures_files/libs/quarto-html/popper.min.js"></script>
+<script src="ExpandingExposures_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="ExpandingExposures_files/libs/quarto-html/anchor.min.js"></script>
+<link href="ExpandingExposures_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="ExpandingExposures_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="ExpandingExposures_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="ExpandingExposures_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="ExpandingExposures_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Expanding Exposures</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Philip Adams </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 24, 2024</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<p>This document will show how to expand a list of policies that includes a termination date into a listing of associated exposures, broken by calendar period and policy period. For our purposes, we set both calendar and policy periods to be 12 months.</p>
+<p>I only build an exposure basis for mortality. The “option” to exercise a claim can occur at any time, so exposure is uniformly spread out.</p>
+<p>For persistency for premiums payable on a due date, the option to stop payment is usually only on a premium due date. Thus, the exposure is technically concentrated on that day. This is handled separately from surrenders, which can occur at any time.</p>
+<section id="setup" class="level1">
+<h1>Setup</h1>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(parallel)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(doParallel)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(reticulate)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>nPolicyCensusSize <span class="ot">&lt;-</span> <span class="dv">2000000</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>arrIssueYearRange <span class="ot">&lt;-</span> <span class="dv">2041</span><span class="sc">:</span><span class="dv">2054</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>study_start <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(<span class="st">"2041-01-01"</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>study_end <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(<span class="st">"2053-12-31"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>pol_period_granularity <span class="ot">&lt;-</span> <span class="dv">12</span> <span class="co"># months per policy period</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>cal_period_granularity <span class="ot">&lt;-</span> <span class="dv">12</span> <span class="co"># months per calendar period</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>cal_yr_breaks <span class="ot">&lt;-</span> (study_start <span class="sc">%m+%</span> <span class="fu">days</span>(<span class="sc">-</span><span class="dv">1</span>)) <span class="sc">%m+%</span> </span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">months</span>( </span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    cal_period_granularity<span class="sc">*</span>(<span class="dv">1</span><span class="sc">:</span>(<span class="fu">interval</span>(study_start <span class="sc">%m+%</span> <span class="fu">days</span>(<span class="sc">-</span><span class="dv">1</span>),study_end) <span class="sc">%/%</span> </span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>                                 <span class="fu">months</span>(cal_period_granularity)))</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>arrow<span class="sc">::</span><span class="fu">read_parquet</span>(<span class="at">file=</span><span class="st">"policy_pop.parquet"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.table</span>() <span class="ot">-&gt;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  policy_pop</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>policy_pop[,Prem_Mode_Months<span class="sc">:</span><span class="er">=</span><span class="fu">sapply</span>(prem_mode,</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>                                     <span class="at">FUN=</span>\(x) <span class="cf">switch</span>(x,<span class="at">A=</span><span class="dv">12</span>,<span class="at">Q=</span><span class="dv">3</span>,<span class="at">M=</span><span class="dv">1</span>),</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>                                     <span class="at">USE.NAMES=</span>F)]</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">'LoadAssumptions.R'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>nPolicyCensusSize <span class="op">=</span> <span class="dv">2000000</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>arrIssueYearRange <span class="op">=</span> <span class="bu">range</span>(<span class="dv">2041</span>,<span class="dv">2055</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyarrow <span class="im">as</span> pa</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyarrow.dataset <span class="im">as</span> ds</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyarrow.parquet <span class="im">as</span> pq</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dateutil.relativedelta <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dateutil.rrule <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dateutil.parser <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> datetime <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> session_info</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>rng_seed <span class="op">=</span> <span class="bn">0xBEEF</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(rng_seed)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>studyStartDate <span class="op">=</span> datetime(<span class="dv">2041</span>,<span class="dv">1</span>,<span class="dv">1</span>)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>studyEndDate <span class="op">=</span> datetime(<span class="dv">2053</span>,<span class="dv">12</span>,<span class="dv">31</span>)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>pol_period_granularity <span class="op">=</span> <span class="dv">12</span> <span class="co"># months per policy period</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>cal_period_granularity <span class="op">=</span> <span class="dv">12</span> <span class="co"># months per calendar period</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> months_between(date1, date2, exact<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  months_bn <span class="op">=</span> (date2.year <span class="op">-</span> date1.year)<span class="op">*</span><span class="dv">12</span> <span class="op">+</span> date2.month <span class="op">-</span> date1.month</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> exact:</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    months_bn <span class="op">+=</span> date2.day<span class="op">/</span>((date2 <span class="op">+</span> relativedelta(day<span class="op">=</span><span class="dv">31</span>)).day) <span class="op">-</span> <span class="op">\</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>      date1.day<span class="op">/</span>((date1 <span class="op">+</span> relativedelta(day<span class="op">=</span><span class="dv">31</span>)).day)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> months_bn</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>studyStartDateMinus1 <span class="op">=</span> studyStartDate <span class="op">+</span> relativedelta(days<span class="op">=-</span><span class="dv">1</span>)</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>studyMonths <span class="op">=</span> np.floor(months_between(studyStartDate, studyEndDate) <span class="op">/</span> <span class="dv">12</span>)</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>cal_yr_breaks <span class="op">=</span> ([studyStartDate <span class="op">+</span> relativedelta(days<span class="op">=-</span><span class="dv">1</span>,months<span class="op">=</span>i) </span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>      <span class="cf">for</span> i <span class="kw">in</span> np.arange(start<span class="op">=</span><span class="dv">1</span>,stop<span class="op">=</span>studyMonths <span class="op">+</span> <span class="dv">1</span>,step<span class="op">=</span><span class="dv">1</span>)<span class="op">*</span>cal_period_granularity])</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>policy_pop <span class="op">=</span> pq.read_table(<span class="st">'policy_pop.parquet'</span>).to_pandas()</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>policy_pop[<span class="st">'Prem_Mode_Months'</span>] <span class="op">=</span> policy_pop[<span class="st">'prem_mode'</span>].<span class="bu">map</span>({</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>  <span class="st">'M'</span> : <span class="dv">1</span>,</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>  <span class="st">'Q'</span> : <span class="dv">3</span>,</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>  <span class="st">'A'</span> : <span class="dv">12</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>policy_pop[<span class="st">'Issue_Date'</span>] <span class="op">=</span> pd.to_datetime(policy_pop[<span class="st">'Issue_Date'</span>])</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>policy_pop[<span class="st">'Term_Date'</span>] <span class="op">=</span> pd.to_datetime(policy_pop[<span class="st">'Term_Date'</span>])</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>policy_pop_sample <span class="op">=</span> policy_pop.head(<span class="dv">1000</span>).copy()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="the-exposure-building-function" class="level1">
+<h1>The Exposure Building Function</h1>
+<p>First, we need to determine the upper and lower bounds of the study periods.</p>
+<ul>
+<li>Set the <em>first date</em> to be the later of the issue date and study start date.</li>
+<li>Set the <em>last date</em> to be the earlier of the termination date, if valid, and study end date.</li>
+<li>Calculate the <em>full policy periods</em> as the exact months between the issue date and last date.</li>
+<li>Calculate the <em>pre-study periods</em> as the exact months between the issue date and the <em>first date</em>.</li>
+</ul>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>.data <span class="sc">%&gt;%</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">first_date=</span><span class="fu">as.Date</span>(</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pmax</span>({{.issue_date}},.exp_period_start)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">last_date=</span><span class="fu">as.Date</span>(</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pmin</span>(<span class="fu">replace_na</span>({{.term_date}},.exp_period_end),.exp_period_end)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">full_pol_periods =</span> <span class="fu">interval</span>({{.issue_date}},last_date) <span class="sc">/</span> </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">months</span>(.pol_period_granularity),</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">prestudy_pol_periods =</span> <span class="fu">interval</span>({{.issue_date}},first_date) <span class="sc">/</span> </span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">months</span>(.pol_period_granularity)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="ot">-&gt;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  .data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>policy_pop_sample[<span class="st">'first_date'</span>] <span class="op">=</span> ([<span class="bu">max</span>([d,studyStartDate]) <span class="cf">for</span> d </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">in</span> policy_pop_sample[<span class="st">'Issue_Date'</span>]])</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>policy_pop_sample[<span class="st">'last_date'</span>] <span class="op">=</span> ([<span class="bu">min</span>([d,studyEndDate]) <span class="cf">for</span> d <span class="kw">in</span> </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  policy_pop_sample[<span class="st">'Term_Date'</span>].fillna(studyEndDate)])</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>policy_pop_sample[<span class="st">'full_pol_periods'</span>] <span class="op">=</span> policy_pop_sample.<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="op">\</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  months_between(x[<span class="st">'Issue_Date'</span>],x[<span class="st">'last_date'</span>],<span class="va">True</span>) <span class="op">/</span> <span class="op">\</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  pol_period_granularity,axis<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>policy_pop_sample[<span class="st">'prestudy_pol_periods'</span>] <span class="op">=</span> policy_pop_sample.<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="op">\</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  months_between(x[<span class="st">'Issue_Date'</span>],x[<span class="st">'first_date'</span>],<span class="va">True</span>) <span class="op">/</span> <span class="op">\</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  pol_period_granularity,axis<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>policy_pop_sample</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    Sex  Issue_Age  ... full_pol_periods  prestudy_pol_periods
+0     F         37  ...        -0.658602                   0.0
+1     M         34  ...         4.768817                   0.0
+2     F         38  ...         1.870690                   0.0
+3     M         34  ...         1.000000                   0.0
+4     M         47  ...        10.201613                   0.0
+..   ..        ...  ...              ...                   ...
+995   M         32  ...         9.416667                   0.0
+996   M         52  ...         9.225806                   0.0
+997   M         46  ...         1.082258                   0.0
+998   M         32  ...         1.165143                   0.0
+999   F         41  ...         6.500000                   0.0
+
+[1000 rows x 30 columns]</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>Next, create the modal sequence for a policy. This is just a sequence of numbers which will be cross-joined into the policy census to build out the mode-aversaries.</p>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-3-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-1" role="tab" aria-controls="tabset-3-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-3-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-2" role="tab" aria-controls="tabset-3-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-3-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-3-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>modal_sequence <span class="ot">&lt;-</span> pol_period_granularity<span class="sc">*</span><span class="fu">as.numeric</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">seq</span>(<span class="at">to=</span>.data[,<span class="fu">ceiling</span>(<span class="fu">max</span>(full_pol_periods))])</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>modal_sequence</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-3-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>modal_sequence <span class="op">=</span> pol_period_granularity<span class="op">*</span>np.arange(<span class="dv">1</span>, <span class="op">\</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  np.ceil(policy_pop_sample[<span class="st">'full_pol_periods'</span>].<span class="bu">max</span>())<span class="op">+</span><span class="dv">1</span>, <span class="op">\</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>np.int32)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>modal_sequence</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>array([ 12,  24,  36,  48,  60,  72,  84,  96, 108, 120, 132, 144, 156],
+      dtype=int32)</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>We have reached the part where we develop the frame of exposures. The expansion is carried out in three parts:</p>
+<ol type="1">
+<li>Create the sequence of policy mode-aversaries and save the day before.</li>
+<li>Add the termination dates.</li>
+<li>Create the sequence of calendar period “anniversaries”.</li>
+<li>Bind them all together. The foregoing dates become the exposure ending period (<em>exp_period_end</em>).</li>
+<li>Sort by policy ID and exposure ending period.</li>
+<li>Set the field for exposure period start, <em>exp_period_start</em>, to the day after the exposure period end of the prior record. If there is no prior record, set it to the <em>first date</em>.</li>
+<li>Filter as needed at any appropriate point to ensure that the exposure periods are within the pre-defined study start and end dates.</li>
+</ol>
+<section id="policy-mode-aversaries" class="level2">
+<h2 class="anchored" data-anchor-id="policy-mode-aversaries">Policy Mode-aversaries</h2>
+<p>Steps for this stage:</p>
+<ol type="1">
+<li>Select only the needed columns.</li>
+<li>Cross-join the modal sequence.</li>
+<li>Filter out modes which aren’t in the study.</li>
+<li>Align only to premium due date modes.</li>
+<li>Set the ending experience period to be the day before the mode-aversary.</li>
+<li>Select the needed columns, and store.</li>
+</ol>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-4-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-1" role="tab" aria-controls="tabset-4-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-2" role="tab" aria-controls="tabset-4-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-4-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-4-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>.data <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>({{.ID}},</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>         prestudy_pol_periods,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>         full_pol_periods,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>         {{.prem_mode_months}},</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>         {{.issue_date}},</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>         first_date) <span class="sc">%&gt;%</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cross_join</span>(<span class="at">y=</span><span class="fu">data.table</span>(<span class="at">monthaversary=</span>modal_sequence)) <span class="sc">%&gt;%</span> <span class="co"># Modal cross-join</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(monthaversary <span class="sc">&gt;=</span> <span class="fu">ceiling</span>(prestudy_pol_periods<span class="sc">*</span>.pol_period_granularity) <span class="sc">&amp;</span> </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>           monthaversary <span class="sc">&lt;=</span> <span class="fu">floor</span>(full_pol_periods<span class="sc">*</span>.pol_period_granularity)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(monthaversary <span class="sc">%%</span> {{.prem_mode_months}} <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">exp_period_end =</span> {{.issue_date}} <span class="sc">%m+%</span> <span class="fu">months</span>(monthaversary) <span class="sc">%m+%</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>           <span class="fu">days</span>(<span class="sc">-</span><span class="dv">1</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>({{.ID}},first_date,monthaversary,exp_period_end,{{.issue_date}}) <span class="ot">-&gt;</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>  stage1a</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-4-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-4-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>stage1a <span class="op">=</span> (</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  policy_pop_sample[</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    [<span class="st">'PolID'</span>,<span class="st">'prestudy_pol_periods'</span>,<span class="st">'full_pol_periods'</span>,<span class="st">'Prem_Mode_Months'</span>, <span class="op">\</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>      <span class="st">'Issue_Date'</span>,<span class="st">'first_date'</span>]</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    ].merge(</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>      pd.DataFrame(data<span class="op">=</span>{<span class="st">'monthaversary'</span> : modal_sequence}),</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>      how<span class="op">=</span><span class="st">'cross'</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>      ).query(</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">'monthaversary &gt;= ceil(prestudy_pol_periods*@pol_period_granularity)'</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        ).query(<span class="st">'monthaversary &lt;= floor(full_pol_periods*@pol_period_granularity)'</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>          .query(<span class="st">'monthaversary % Prem_Mode_Months == 0'</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>stage1a[<span class="st">'exp_period_end'</span>] <span class="op">=</span> stage1a.<span class="bu">apply</span>(<span class="kw">lambda</span> x: x[<span class="st">'Issue_Date'</span>] <span class="op">+</span> <span class="op">\</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  relativedelta(days<span class="op">=-</span><span class="dv">1</span>, months<span class="op">=</span>x[<span class="st">'monthaversary'</span>]),axis<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>stage1a <span class="op">=</span> stage1a[[<span class="st">'PolID'</span>,<span class="st">'first_date'</span>,<span class="st">'monthaversary'</span>,<span class="st">'exp_period_end'</span>,<span class="st">'Issue_Date'</span>]]</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>stage1a</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       PolID first_date  monthaversary exp_period_end Issue_Date
+13         2 2049-03-24             12     2050-03-23 2049-03-24
+14         2 2049-03-24             24     2051-03-23 2049-03-24
+15         2 2049-03-24             36     2052-03-23 2049-03-24
+16         2 2049-03-24             48     2053-03-23 2049-03-24
+26         3 2052-02-16             12     2053-02-15 2052-02-16
+...      ...        ...            ...            ...        ...
+12988   1000 2042-07-23             24     2044-07-22 2042-07-23
+12989   1000 2042-07-23             36     2045-07-22 2042-07-23
+12990   1000 2042-07-23             48     2046-07-22 2042-07-23
+12991   1000 2042-07-23             60     2047-07-22 2042-07-23
+12992   1000 2042-07-23             72     2048-07-22 2042-07-23
+
+[3485 rows x 5 columns]</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="terminating-records" class="level2">
+<h2 class="anchored" data-anchor-id="terminating-records">Terminating Records</h2>
+<p>Steps for this stage:</p>
+<ol type="1">
+<li>Filter only for actual terminations.</li>
+<li>Restrict terminations only to those occurring in the study period.</li>
+<li>Set the experience period end date to be the termination date.</li>
+<li>Set the mode-aversary corresponding to this date.</li>
+<li>Select only the needed columns, and store.</li>
+</ol>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-5-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-1" role="tab" aria-controls="tabset-5-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-5-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-2" role="tab" aria-controls="tabset-5-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-5-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-5-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>.data <span class="sc">%&gt;%</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>({{.term_date}})) <span class="sc">%&gt;%</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>({{.term_date}} <span class="sc">&gt;=</span> study_start <span class="sc">&amp;</span> {{.term_date}} <span class="sc">&lt;=</span> study_end) <span class="sc">%&gt;%</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>({{.ID}},{{.issue_date}},first_date,{{.term_date}}) <span class="sc">%&gt;%</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">exp_period_end=</span>{{.term_date}} ) <span class="sc">%&gt;%</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">monthaversary=</span><span class="fu">interval</span>({{.issue_date}},exp_period_end) <span class="sc">/</span> <span class="fu">months</span>(<span class="dv">1</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>({{.ID}},first_date,monthaversary,exp_period_end,{{.issue_date}}) <span class="ot">-&gt;</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  stage1b</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-5-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-5-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>stage1b <span class="op">=</span> (</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  policy_pop_sample.query(<span class="st">'Term_Date == Term_Date'</span>)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    .query(<span class="st">'Term_Date &gt;= @studyStartDate and Term_Date &lt;= @studyEndDate'</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>stage1b <span class="op">=</span> stage1b[[<span class="st">'PolID'</span>,<span class="st">'Issue_Date'</span>,<span class="st">'first_date'</span>,<span class="st">'Term_Date'</span>]]</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>stage1b <span class="op">=</span> stage1b.rename(columns<span class="op">=</span>{<span class="st">'Term_Date'</span>:<span class="st">'exp_period_end'</span>})</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>stage1b[<span class="st">'monthaversary'</span>] <span class="op">=</span> [months_between(x,y,exact<span class="op">=</span><span class="va">True</span>) <span class="cf">for</span> x,y <span class="kw">in</span> <span class="op">\</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="bu">zip</span>(stage1b[<span class="st">'Issue_Date'</span>],stage1b[<span class="st">'exp_period_end'</span>])]</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>stage1b</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     PolID Issue_Date first_date exp_period_end  monthaversary
+3        4 2052-09-22 2052-09-22     2053-09-22      12.000000
+7        8 2043-11-29 2043-11-29     2048-10-29      58.968817
+9       10 2044-09-22 2044-09-22     2045-08-22      10.976344
+11      12 2052-11-25 2052-11-25     2053-10-25      10.973118
+19      20 2047-06-29 2047-06-29     2048-06-29      12.000000
+..     ...        ...        ...            ...            ...
+986    987 2047-12-25 2047-12-25     2048-03-25       3.000000
+990    991 2050-10-08 2050-10-08     2050-11-08       1.008602
+997    998 2049-09-12 2049-09-12     2050-10-12      12.987097
+998    999 2047-06-17 2047-06-17     2048-08-17      13.981720
+999   1000 2042-07-23 2042-07-23     2049-01-23      78.000000
+
+[320 rows x 5 columns]</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="calendar-year-breaks" class="level2">
+<h2 class="anchored" data-anchor-id="calendar-year-breaks">Calendar-Year Breaks</h2>
+<p>Steps for this stage:</p>
+<ol type="1">
+<li>Cross-join the calendar year breaks.</li>
+<li>Filter only those occurring in the policy’s exposure window.</li>
+<li>Set the corresponding <em>modeaversary</em>.</li>
+<li>Select only the needed columns, and store.</li>
+</ol>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-6-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-6-1" role="tab" aria-controls="tabset-6-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-6-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-6-2" role="tab" aria-controls="tabset-6-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-6-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-6-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>.data <span class="sc">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cross_join</span>(<span class="fu">data.table</span>(<span class="at">exp_period_end=</span>.cal_yr_breaks)) <span class="sc">%&gt;%</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(exp_period_end <span class="sc">&gt;=</span> first_date <span class="sc">&amp;</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>           exp_period_end <span class="sc">&lt;=</span> last_date) <span class="sc">%&gt;%</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">monthaversary=</span><span class="fu">interval</span>({{.issue_date}},exp_period_end) <span class="sc">/</span> <span class="fu">months</span>(<span class="dv">1</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>({{.ID}},first_date,monthaversary,exp_period_end,{{.issue_date}}) <span class="ot">-&gt;</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  stage1c</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-6-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-6-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>stage1c <span class="op">=</span> (</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  policy_pop_sample.merge(</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>      pd.DataFrame(data<span class="op">=</span>{<span class="st">'exp_period_end'</span> : cal_yr_breaks}),</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>      how<span class="op">=</span><span class="st">'cross'</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>      ).query(</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">'exp_period_end &gt;= first_date and exp_period_end &lt;= last_date'</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>stage1c[<span class="st">'monthaversary'</span>] <span class="op">=</span> [months_between(x,y,exact<span class="op">=</span><span class="va">True</span>) <span class="cf">for</span> x,y <span class="kw">in</span> <span class="op">\</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>  <span class="bu">zip</span>(stage1c[<span class="st">'Issue_Date'</span>],stage1c[<span class="st">'exp_period_end'</span>])]</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>stage1c <span class="op">=</span> stage1c[[<span class="st">'PolID'</span>,<span class="st">'first_date'</span>,<span class="st">'monthaversary'</span>,<span class="st">'exp_period_end'</span>, <span class="op">\</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  <span class="st">'Issue_Date'</span>]]</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>stage1c</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       PolID first_date  monthaversary exp_period_end Issue_Date
+20         2 2049-03-24       9.225806     2049-12-31 2049-03-24
+21         2 2049-03-24      21.225806     2050-12-31 2049-03-24
+22         2 2049-03-24      33.225806     2051-12-31 2049-03-24
+23         2 2049-03-24      45.225806     2052-12-31 2049-03-24
+35         3 2052-02-16      10.448276     2052-12-31 2052-02-16
+...      ...        ...            ...            ...        ...
+11991   1000 2042-07-23      29.258065     2044-12-31 2042-07-23
+11992   1000 2042-07-23      41.258065     2045-12-31 2042-07-23
+11993   1000 2042-07-23      53.258065     2046-12-31 2042-07-23
+11994   1000 2042-07-23      65.258065     2047-12-31 2042-07-23
+11995   1000 2042-07-23      77.258065     2048-12-31 2042-07-23
+
+[3618 rows x 5 columns]</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="putting-it-all-together-and-final-touches" class="level2">
+<h2 class="anchored" data-anchor-id="putting-it-all-together-and-final-touches">Putting It All Together and Final Touches</h2>
+<p>Steps for this stage:</p>
+<ol type="1">
+<li>Concatenate the three pieces.</li>
+<li>Ensure we have distinct records.</li>
+<li>Order by policy ID and exposure period end.</li>
+<li>Group by Policy ID.</li>
+<li>Within policy ID, compute the exposure period start as the day after the prior record.</li>
+<li>Within Policy ID, set null exposure starts to be the first date.</li>
+<li>Compute policy duration and exact exposure.</li>
+<li>Select the needed columns, and store.</li>
+</ol>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-7-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-1" role="tab" aria-controls="tabset-7-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-7-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-2" role="tab" aria-controls="tabset-7-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-7-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-7-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rbind</span>(</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  stage1a,</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  stage1b,</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  stage1c</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>({{.ID}}, exp_period_end) <span class="sc">%&gt;%</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>({{.ID}}) <span class="sc">%&gt;%</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">exp_period_start=</span><span class="fu">lag</span>(exp_period_end) <span class="sc">%m+%</span> <span class="fu">days</span>(<span class="dv">1</span>),</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">.before=</span>exp_period_end) <span class="sc">%&gt;%</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">exp_period_start=</span><span class="fu">as.Date</span>(<span class="fu">ifelse</span>(<span class="fu">is.na</span>(exp_period_start),</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>                                         first_date,</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>                                         exp_period_start))) <span class="sc">%&gt;%</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pol_duration =</span> <span class="fu">pmax</span>(<span class="dv">1</span>,<span class="fu">ceiling</span>(<span class="fu">interval</span>({{.issue_date}},exp_period_end) <span class="sc">/</span> </span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>                                         <span class="fu">years</span>(<span class="dv">1</span>))),</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>         <span class="at">exposure =</span> (<span class="fu">interval</span>(exp_period_start,exp_period_end) <span class="sc">/</span> <span class="fu">days</span>(<span class="dv">1</span>) <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">/</span> </span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>           <span class="fu">ifelse</span>(<span class="fu">year</span>(exp_period_end) <span class="sc">%%</span> <span class="dv">4</span> <span class="sc">==</span> <span class="dv">0</span>, <span class="dv">366</span>, <span class="dv">365</span>)</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>({{.ID}},monthaversary,exp_period_start,exp_period_end,pol_duration,exposure) <span class="sc">%&gt;%</span></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.table</span>() <span class="ot">-&gt;</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>  .data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-7-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-7-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>exposures <span class="op">=</span> (</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  pd.concat(</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  [stage1a,stage1b,stage1c]</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>).drop_duplicates()</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a> .sort_values([<span class="st">'PolID'</span>,<span class="st">'exp_period_end'</span>])</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a> ).reset_index(drop<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>exposures[<span class="st">'exp_period_start'</span>] <span class="op">=</span> [d <span class="op">+</span> relativedelta(days<span class="op">=</span><span class="dv">1</span>) <span class="op">\</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> d <span class="kw">in</span> exposures[<span class="st">'exp_period_end'</span>]]</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>exposures[<span class="st">'exp_period_start'</span>] <span class="op">=</span> exposures.groupby(<span class="st">'PolID'</span>)[<span class="st">'exp_period_start'</span>].shift(<span class="dv">1</span>)</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>exposures[<span class="st">'exp_period_start'</span>] <span class="op">=</span> exposures[<span class="st">'exp_period_start'</span>].fillna(exposures[<span class="st">'first_date'</span>])</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>exposures[<span class="st">'pol_duration'</span>] <span class="op">=</span> [np.ceil(months_between(x,y,exact<span class="op">=</span><span class="va">True</span>)<span class="op">/</span><span class="dv">12</span>) <span class="cf">for</span> x,y <span class="kw">in</span> <span class="op">\</span></span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>  <span class="bu">zip</span>(exposures[<span class="st">'Issue_Date'</span>],exposures[<span class="st">'exp_period_end'</span>])]</span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>exposures[<span class="st">'pol_duration'</span>] <span class="op">=</span> exposures[<span class="st">'pol_duration'</span>].astype(<span class="st">'int32'</span>)</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>exposures[<span class="st">'exposure'</span>] <span class="op">=</span> <span class="op">\</span></span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>  exposures.<span class="bu">apply</span>(</span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">lambda</span> x: ((x[<span class="st">'exp_period_end'</span>] <span class="op">-</span> x[<span class="st">'exp_period_start'</span>]).days <span class="op">+</span> <span class="dv">1</span>)<span class="op">/</span> <span class="op">\</span></span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>      (<span class="dv">366</span> <span class="cf">if</span> (x[<span class="st">'exp_period_end'</span>].year <span class="op">%</span> <span class="dv">4</span> <span class="op">==</span> <span class="dv">0</span>) <span class="cf">else</span> <span class="dv">365</span>),</span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>    axis<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>exposures <span class="op">=</span> exposures[[<span class="st">'PolID'</span>,<span class="st">'monthaversary'</span>,<span class="st">'exp_period_start'</span>, <span class="op">\</span></span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>  <span class="st">'exp_period_end'</span>,<span class="st">'pol_duration'</span>,<span class="st">'exposure'</span>]]</span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a>exposures</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      PolID  monthaversary  ... pol_duration  exposure
+0         2       9.225806  ...            1  0.775342
+1         2      12.000000  ...            1  0.224658
+2         2      21.225806  ...            2  0.775342
+3         2      24.000000  ...            2  0.224658
+4         2      33.225806  ...            3  0.775342
+...     ...            ...  ...          ...       ...
+7417   1000      60.000000  ...            5  0.556164
+7418   1000      65.258065  ...            6  0.443836
+7419   1000      72.000000  ...            6  0.557377
+7420   1000      77.258065  ...            7  0.442623
+7421   1000      78.000000  ...            7  0.063014
+
+[7422 rows x 6 columns]</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="final-build-with-r-function" class="level1">
+<h1>Final Build With R Function</h1>
+<p>The R function that I built can be run in parallel, and I have opted to run by issue year for this example. In production, it might be better to run it by experience year.</p>
+<p>Without parallelism, it will take several hours to develop the entire exposure set. Using 13 cores as I do here for each issue year, it takes about 12 minutes. This is why I opted not to demonstrate this in Python in this document. Doing this in Python’s parallelism will work as well (i.e., create a function and manually spawn processes, and so on).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">'expand.exposures.R'</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>cl <span class="ot">&lt;-</span> <span class="fu">makeCluster</span>(<span class="dv">13</span>)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="fu">registerDoParallel</span>(<span class="at">cl=</span>cl)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>policy_exposures <span class="ot">&lt;-</span> <span class="fu">foreach</span>(<span class="at">i=</span><span class="dv">2041</span><span class="sc">:</span><span class="dv">2053</span>,<span class="at">.packages=</span><span class="fu">c</span>(<span class="st">"data.table"</span>,<span class="st">"tidyverse"</span>)) <span class="sc">%dopar%</span> {</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>          policy_pop[Issue_Year<span class="sc">==</span>i] <span class="sc">%&gt;%</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>            <span class="fu">filter</span>(Issue_Date <span class="sc">&lt;=</span> study_end) <span class="sc">%&gt;%</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>            <span class="fu">select</span>(PolID,Issue_Date,Term_Date,Prem_Mode_Months) <span class="sc">%&gt;%</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>            <span class="fu">expand_exposures</span>(</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>              <span class="at">.exp_period_start =</span> study_start,</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>              <span class="at">.exp_period_end =</span> study_end,</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>              <span class="at">.cal_yr_breaks =</span> cal_yr_breaks,</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>              <span class="at">.pol_period_granularity =</span> pol_period_granularity,</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>              <span class="at">.cal_period_granularity =</span> cal_period_granularity,</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>              <span class="at">.issue_date =</span> Issue_Date,</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>              <span class="at">.term_date =</span> Term_Date,</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>              <span class="at">.ID=</span>PolID,</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>              <span class="at">.prem_mode_months =</span> Prem_Mode_Months</span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a><span class="fu">stopCluster</span>(cl)</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>policy_exposures <span class="ot">&lt;-</span> <span class="fu">rbindlist</span>(policy_exposures)</span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>policy_exposures[,ID<span class="sc">:</span><span class="er">=</span><span class="dv">1</span><span class="sc">:</span><span class="fu">nrow</span>(.SD)]</span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>arrow<span class="sc">::</span><span class="fu">write_parquet</span>(<span class="at">x=</span>policy_exposures,</span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>                     <span class="at">sink=</span><span class="st">"policy_exposures.parquet"</span>)</span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>policy_exposures</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            PolID monthaversary exp_period_start exp_period_end pol_duration
+            &lt;int&gt;         &lt;num&gt;           &lt;Date&gt;         &lt;Date&gt;        &lt;num&gt;
+       1:      30      4.354839       2041-08-20     2041-12-31            1
+       2:      30     12.000000       2042-01-01     2042-08-19            1
+       3:      30     16.354839       2042-08-20     2042-12-31            2
+       4:      30     24.000000       2043-01-01     2043-08-19            2
+       5:      30     28.354839       2043-08-20     2043-12-31            3
+      ---                                                                   
+15990849: 1999958     10.225806       2053-02-24     2053-12-31            1
+15990850: 1999977     10.161290       2053-02-26     2053-12-31            1
+15990851: 1999984      6.967742       2053-06-01     2053-12-31            1
+15990852: 1999993      8.870968       2053-04-04     2053-12-31            1
+15990853: 2000000      0.000000       2053-03-08     2053-03-08            1
+             exposure       ID
+                &lt;num&gt;    &lt;int&gt;
+       1: 0.367123288        1
+       2: 0.632876712        2
+       3: 0.367123288        3
+       4: 0.632876712        4
+       5: 0.367123288        5
+      ---                     
+15990849: 0.852054795 15990849
+15990850: 0.846575342 15990850
+15990851: 0.586301370 15990851
+15990852: 0.745205479 15990852
+15990853: 0.002739726 15990853</code></pre>
+</div>
+</div>
+</section>
+<section id="attaching-expected-claims" class="level1">
+<h1>Attaching Expected Claims</h1>
+<p>Attaching the expecting claims is once again a basic database operation.</p>
+<ol type="1">
+<li>Join the policy census with the exposures.</li>
+<li>Join the expected basis for the event of interest, if the basis is in table form.</li>
+<li>Compute derived quantities, and store.</li>
+</ol>
+<p>After that, the information can be fed into reporting and analytics pipelines as needed.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>policy_pop <span class="sc">%&gt;%</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(UW_Decision <span class="sc">!=</span> <span class="st">"DEC"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(<span class="at">y=</span>policy_exposures,</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">by=</span><span class="st">"PolID"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">y=</span>vbt2015,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">by=</span><span class="fu">join_by</span>(</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>      Sex<span class="sc">==</span>Sex,</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>      Issue_Age<span class="sc">==</span>Issue_Age,</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>      pol_duration<span class="sc">==</span>Duration</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">ExpectedClaims_2015VBT_Count=</span>exposure<span class="sc">*-</span><span class="fu">log</span>(<span class="dv">1</span><span class="sc">-</span>qx_su),</span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>         <span class="at">ExpectedClaims_2015VBT_Amount=</span>ExpectedClaims_2015VBT_Count<span class="sc">*</span>Face_Amount) <span class="sc">%&gt;%</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(ID,ExpectedClaims_2015VBT_Count,ExpectedClaims_2015VBT_Amount)<span class="ot">-&gt;</span></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>  expected_claims</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>expected_claims</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                ID ExpectedClaims_2015VBT_Count ExpectedClaims_2015VBT_Amount
+             &lt;int&gt;                        &lt;num&gt;                         &lt;num&gt;
+       1: 12646805                 1.163101e-04                    11.6310093
+       2: 12646806                 3.370116e-05                     3.3701158
+       3: 12646807                 1.318194e-04                    13.1819424
+       4: 12646808                 3.819503e-05                     3.8195027
+       5: 12646809                 2.016153e-04                    20.1615252
+      ---                                                                    
+15918397: 13740151                 2.074082e-04                   165.9265296
+15918398: 13740152                 1.111676e-04                    88.9340419
+15918399: 13740153                 2.485927e-04                   198.8741557
+15918400: 13740154                 1.300547e-04                   104.0437685
+15918401: 15990853                 4.109897e-07                     0.2054949</code></pre>
+</div>
+</div>
+</section>
+<section id="session-information" class="level1">
+<h1>Session Information</h1>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-8-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-8-1" role="tab" aria-controls="tabset-8-1" aria-selected="true" href="">R</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-8-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-8-2" role="tab" aria-controls="tabset-8-2" aria-selected="false" href="">Python</a></li></ul>
+<div class="tab-content">
+<div id="tabset-8-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-8-1-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.3.3 (2024-02-29)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 22.04.4 LTS
+
+Matrix products: default
+BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.20.so;  LAPACK version 3.10.0
+
+locale:
+[1] C
+
+time zone: Etc/UTC
+tzcode source: system (glibc)
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] openxlsx_4.2.5.2  reticulate_1.35.0 doParallel_1.0.17 iterators_1.0.14 
+ [5] foreach_1.5.2     lubridate_1.9.3   forcats_1.0.0     stringr_1.5.1    
+ [9] dplyr_1.1.4       purrr_1.0.2       readr_2.1.5       tidyr_1.3.1      
+[13] tibble_3.2.1      ggplot2_3.5.0     tidyverse_2.0.0   arrow_15.0.1     
+[17] data.table_1.15.2
+
+loaded via a namespace (and not attached):
+ [1] utf8_1.2.4        generics_0.1.3    lattice_0.22-5    stringi_1.8.3    
+ [5] hms_1.1.3         digest_0.6.35     magrittr_2.0.3    evaluate_0.23    
+ [9] grid_4.3.3        timechange_0.3.0  fastmap_1.1.1     rprojroot_2.0.4  
+[13] Matrix_1.6-3      jsonlite_1.8.8    zip_2.3.1         fansi_1.0.6      
+[17] scales_1.3.0      codetools_0.2-19  cli_3.6.2         rlang_1.1.3      
+[21] bit64_4.0.5       munsell_0.5.0     withr_3.0.0       yaml_2.3.8       
+[25] tools_4.3.3       tzdb_0.4.0        colorspace_2.1-0  here_1.0.1       
+[29] assertthat_0.2.1  png_0.1-8         vctrs_0.6.5       R6_2.5.1         
+[33] lifecycle_1.0.4   htmlwidgets_1.6.4 bit_4.0.5         pkgconfig_2.0.3  
+[37] pillar_1.9.0      gtable_0.3.4      Rcpp_1.0.12       glue_1.7.0       
+[41] xfun_0.42         tidyselect_1.2.1  rstudioapi_0.15.0 knitr_1.45       
+[45] htmltools_0.5.7   rmarkdown_2.26    compiler_4.3.3   </code></pre>
+</div>
+</div>
+</div>
+<div id="tabset-8-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-8-2-tab">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>session_info.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>-----
+dateutil            2.8.2
+numpy               1.23.5
+pandas              2.0.3
+pyarrow             14.0.1.dev0+gba5374836.d20240125
+session_info        1.0.0
+-----
+Python 3.10.12 (main, Nov 20 2023, 15:14:05) [GCC 11.4.0]
+Linux-5.15.146.1-microsoft-standard-WSL2-x86_64-with-glibc2.35
+-----
+Session information updated at 2024-04-25 13:02</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
