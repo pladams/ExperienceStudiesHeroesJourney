@@ -47,3 +47,15 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# RDS files
+*.rds
+
+#Cache
+/caches
+/caches/*
+*.parquet
+
+# Supporting design
+/Diagrams
+/Images

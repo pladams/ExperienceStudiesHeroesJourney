@@ -8,15 +8,15 @@ editor: visual
 
 This document will show how to expand a list of policies that includes a termination date into a listing of associated exposures, broken by calendar period and policy period. For our purposes, we set both calendar and policy periods to be 12 months.
 
-I only build an exposure basis for mortality. The "option" to exercise a claim can occur at any time, so exposure is uniformly spread out. 
+I only build an exposure basis for mortality. The "option" to exercise a claim can occur at any time, so exposure is uniformly spread out.
 
 For persistency for premiums payable on a due date, the option to stop payment is usually only on a premium due date. Thus, the exposure is technically concentrated on that day. This is handled separately from surrenders, which can occur at any time.
 
 # Setup
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ## R
+
 ```{r message=FALSE, warning=FALSE}
 library(data.table)
 library(arrow)
@@ -108,21 +108,20 @@ policy_pop['Term_Date'] = pd.to_datetime(policy_pop['Term_Date'])
 
 policy_pop_sample = policy_pop.head(1000).copy()
 ```
-
 :::
 
 # The Exposure Building Function
 
 First, we need to determine the upper and lower bounds of the study periods.
 
-- Set the *first date* to be the later of the issue date and study start date.
-- Set the *last date* to be the earlier of the termination date, if valid, and study end date.
-- Calculate the *full policy periods* as the exact months between the issue date and last date.
-- Calculate the *pre-study periods* as the exact months between the issue date and the *first date*.
+-   Set the *first date* to be the later of the issue date and study start date.
+-   Set the *last date* to be the earlier of the termination date, if valid, and study end date.
+-   Calculate the *full policy periods* as the exact months between the issue date and last date.
+-   Calculate the *pre-study periods* as the exact months between the issue date and the *first date*.
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ## R
+
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 .data %>%
   mutate(
@@ -159,14 +158,13 @@ policy_pop_sample['prestudy_pol_periods'] = policy_pop_sample.apply(lambda x: \
 policy_pop_sample
 
 ```
-
 :::
 
 Next, create the modal sequence for a policy. This is just a sequence of numbers which will be cross-joined into the policy census to build out the mode-aversaries.
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ## R
+
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 
 modal_sequence <- pol_period_granularity*as.numeric(
@@ -186,34 +184,32 @@ modal_sequence = pol_period_granularity*np.arange(1, \
 modal_sequence
 
 ```
-
 :::
 
 We have reached the part where we develop the frame of exposures. The expansion is carried out in three parts:
 
-1. Create the sequence of policy mode-aversaries and save the day before.
-2. Add the termination dates.
-3. Create the sequence of calendar period "anniversaries".
-4. Bind them all together. The foregoing dates become the exposure ending period (*exp_period_end*).
-5. Sort by policy ID and exposure ending period.
-6. Set the field for exposure period start, *exp_period_start*, to the day after the exposure period end of the prior record. If there is no prior record, set it to the *first date*.
-7. Filter as needed at any appropriate point to ensure that the exposure periods are within the pre-defined study start and end dates.
-
+1.  Create the sequence of policy mode-aversaries and save the day before.
+2.  Add the termination dates.
+3.  Create the sequence of calendar period "anniversaries".
+4.  Bind them all together. The foregoing dates become the exposure ending period (*exp_period_end*).
+5.  Sort by policy ID and exposure ending period.
+6.  Set the field for exposure period start, *exp_period_start*, to the day after the exposure period end of the prior record. If there is no prior record, set it to the *first date*.
+7.  Filter as needed at any appropriate point to ensure that the exposure periods are within the pre-defined study start and end dates.
 
 ## Policy Mode-aversaries
 
 Steps for this stage:
 
-1. Select only the needed columns.
-2. Cross-join the modal sequence.
-3. Filter out modes which aren't in the study.
-4. Align only to premium due date modes.
-5. Set the ending experience period to be the day before the mode-aversary.
-6. Select the needed columns, and store.
+1.  Select only the needed columns.
+2.  Cross-join the modal sequence.
+3.  Filter out modes which aren't in the study.
+4.  Align only to premium due date modes.
+5.  Set the ending experience period to be the day before the mode-aversary.
+6.  Select the needed columns, and store.
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ### R
+
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 
 .data %>%
@@ -259,22 +255,21 @@ stage1a = stage1a[['PolID','first_date','monthaversary','exp_period_end','Issue_
 stage1a
 
 ```
-
 :::
 
 ## Terminating Records
 
 Steps for this stage:
 
-1. Filter only for actual terminations.
-2. Restrict terminations only to those occurring in the study period.
-3. Set the experience period end date to be the termination date.
-4. Set the mode-aversary corresponding to this date.
-5. Select only the needed columns, and store.
+1.  Filter only for actual terminations.
+2.  Restrict terminations only to those occurring in the study period.
+3.  Set the experience period end date to be the termination date.
+4.  Set the mode-aversary corresponding to this date.
+5.  Select only the needed columns, and store.
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ### R
+
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 
 .data %>%
@@ -305,22 +300,20 @@ stage1b['monthaversary'] = [months_between(x,y,exact=True) for x,y in \
 stage1b
 
 ```
-
 :::
-
 
 ## Calendar-Year Breaks
 
 Steps for this stage:
 
-1. Cross-join the calendar year breaks.
-2. Filter only those occurring in the policy's exposure window.
-3. Set the corresponding *modeaversary*.
-4. Select only the needed columns, and store.
+1.  Cross-join the calendar year breaks.
+2.  Filter only those occurring in the policy's exposure window.
+3.  Set the corresponding *modeaversary*.
+4.  Select only the needed columns, and store.
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ### R
+
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 
 .data %>%
@@ -354,25 +347,24 @@ stage1c = stage1c[['PolID','first_date','monthaversary','exp_period_end', \
 stage1c
 
 ```
-
 :::
 
 ## Putting It All Together and Final Touches
 
 Steps for this stage:
 
-1. Concatenate the three pieces.
-2. Ensure we have distinct records.
-3. Order by policy ID and exposure period end.
-4. Group by Policy ID.
-5. Within policy ID, compute the exposure period start as the day after the prior record.
-6. Within Policy ID, set null exposure starts to be the first date.
-7. Compute policy duration and exact exposure.
-8. Select the needed columns, and store.
+1.  Concatenate the three pieces.
+2.  Ensure we have distinct records.
+3.  Order by policy ID and exposure period end.
+4.  Group by Policy ID.
+5.  Within policy ID, compute the exposure period start as the day after the prior record.
+6.  Within Policy ID, set null exposure starts to be the first date.
+7.  Compute policy duration and exact exposure.
+8.  Select the needed columns, and store.
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ### R
+
 ```{r message=FALSE, warning=FALSE, eval=FALSE}
 
 rbind(
@@ -433,7 +425,6 @@ exposures = exposures[['PolID','monthaversary','exp_period_start', \
 exposures
 
 ```
-
 :::
 
 # Final Build With R Function
@@ -481,9 +472,9 @@ policy_exposures
 
 Attaching the expecting claims is once again a basic database operation.
 
-1. Join the policy census with the exposures.
-2. Join the expected basis for the event of interest, if the basis is in table form.
-3. Compute derived quantities, and store.
+1.  Join the policy census with the exposures.
+2.  Join the expected basis for the event of interest, if the basis is in table form.
+3.  Compute derived quantities, and store.
 
 After that, the information can be fed into reporting and analytics pipelines as needed.
 
@@ -510,8 +501,7 @@ expected_claims
 
 # Session Information
 
-::: {.panel-tabset}
-
+::: panel-tabset
 ## R
 
 ```{r}

@@ -7,14 +7,15 @@ expand_exposures <- function(.data,
                              .issue_date,
                              .term_date,
                              .ID,
-                             .prem_mode_months) {
+                             .prem_mode_months,
+                             .exact_terminations=FALSE) {
   
   .data %>%
     mutate(
-      first_date=as.Date(
+      first_date=as_datetime(
         pmax({{.issue_date}},.exp_period_start)
       ),
-      last_date=as.Date(
+      last_date=as_datetime(
         pmin(replace_na({{.term_date}},.exp_period_end),.exp_period_end)
       ),
       full_pol_periods = interval({{.issue_date}},last_date) / months(.pol_period_granularity),
@@ -63,12 +64,25 @@ expand_exposures <- function(.data,
   ) %>%
     distinct() %>%
     arrange({{.ID}}, exp_period_end) %>%
-    group_by({{.ID}}) %>%
-    mutate(exp_period_start=lag(exp_period_end) %m+% days(1),
-           .before=exp_period_end) %>%
-    mutate(exp_period_start=as.Date(ifelse(is.na(exp_period_start),first_date,exp_period_start))) %>%
+    group_by({{.ID}}) ->
+    .data
+  
+  if(.exact_terminations) {
+    .data %>%
+      mutate(exp_period_start=lag(exp_period_end) %m+% seconds(1),
+             .before=exp_period_end) ->
+      .data
+  } else {
+    .data %>%
+      mutate(exp_period_start=lag(exp_period_end) %m+% days(1),
+             .before=exp_period_end) ->
+      .data
+  }
+  
+  .data %>%
+    mutate(exp_period_start=as_datetime(ifelse(is.na(exp_period_start),first_date,exp_period_start))) %>%
     mutate(pol_duration = pmax(1,ceiling(interval({{.issue_date}},exp_period_end) / years(1))),
-           exposure = (interval(exp_period_start,exp_period_end) / days(1) + 1) / ifelse(year(exp_period_end) %% 4 == 0, 366, 365)
+           exposure = (interval(exp_period_start,exp_period_end) / days(1) + ifelse(.exact_terminations,0,1)) / ifelse(year(exp_period_end) %% 4 == 0, 366, 365)
     ) %>%
     select({{.ID}},monthaversary,exp_period_start,exp_period_end,pol_duration,exposure) %>%
     data.table() ->

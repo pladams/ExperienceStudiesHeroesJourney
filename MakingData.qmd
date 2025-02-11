@@ -22,7 +22,6 @@ I have done this in Python for the sake of my own education and to compare metho
 
 ```{r warning=FALSE, message=FALSE}
 library(data.table)
-library(data.table)
 library(plyr)
 library(tidyverse)
 library(arrow)
